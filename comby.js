@@ -90,7 +90,7 @@ function makeTokenizer(rules) {
 
 // Parser combinator utils
 
-function _reduce(arr, fn) {
+function reduce(arr, fn) {
     if (arr.length < 2) return arr[0];
     else {
         var acc = fn(arr[0], arr[1]);
@@ -356,6 +356,29 @@ function wrapParser(p, tokenizer) {
     }
 }
 
+// Additional parsers that can be useful
+
+// Untokenized versions of parsers for natural numbers, rational decimal numbers
+// and ids (matches variable and function names)
+// These are slower than tokenized versions
+
+var NATNUM = T(REP($(isDigit)), x => {return parseInt(x.join(''))});
+
+var NUM = ALT(T(SEQ(NATNUM, '.', NATNUM),
+                x => {
+                    var ret = x[0] + x[2]/(10*x[2].toString().length);
+                    return ret;
+                }),
+              NATNUM);
+
+var ID = T(SEQ($(isAlpha), REP($(isAlphaNum))), x => x.join(''));
+
+// Tokenized versions of NUM and ID
+
+var ID_T = T($(x => x.t === 'id'), x => x[0].d);
+    
+var NUM_T = $(x => (typeof x === 'number'));
+
 module.exports = {
     $: $,
     SEQ: SEQ,
@@ -365,9 +388,15 @@ module.exports = {
     OPT: OPT,
     OPTREM: OPTREM,
     END: END,
+    NATNUM: NATNUM,
+    NUM: NUM,
+    ID: ID,
+    ID_T: ID_T,
+    NUM_T: NUM_T,
     tokenizer: makeTokenizer,
     wrap: wrapParser,
     pState: pState,
+    reduce: reduce,
     isDigit: isDigit,
     isNumber: isNumber,
     isWhitespace: isWhitespace,

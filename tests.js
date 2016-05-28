@@ -179,212 +179,34 @@ function prepArithTests(tests, solver) {
     return tests.map(x => [x[0], solver, x[1]]);
 }
 
-// Arithmetic Expression Tree Evaluator
-
-var arithOps = {
-    '+': (arr) => _reduce(arr, (a,b) => a+b),
-    '-': (arr) => arr.length == 1 ? -arr[0] : _reduce(arr, (a,b) => a-b),
-    '*': (arr) => _reduce(arr, (a,b) => a*b),
-    '/': (arr) => _reduce(arr, (a,b) => a/b),
-}
-
-function addFunctions(obj, fns) {
-    for (fname in fns) {
-        (function (name, val) {
-            obj[name] = function (args) { return val.apply(this, args) };
-        })(fname, fns[fname]);
-    }
-}
-
-var fromMath = {};
-('abs sign sqrt pow exp log max min sin cos tan atan2').split(' ').forEach(
-    (name) => {fromMath[name] = Math[name]});
-
-addFunctions(arithOps, fromMath);
-
-function computeTree(opTree, ops) {
-    if (typeof opTree === 'number') {
-        return opTree;
-    } else if (typeof opTree === 'object') {
-        if (opTree.op && arithOps[opTree.op]) {
-            var ret = arithOps[opTree.op](opTree.args.map(computeTree));
-            //pr('OP:',opTree,'OUT:',ret);
-            return ret;
-        } else {
-            pr('Error in computeTree: Unknown op \"'+opTree.op+'\" in', opTree);
-        }
-    } else {
-        pr('Error in computeTree: Unknown argument', opTree);
-    }
-}
-
-// Arithmetic expression solver 
-
-function arithSolver(parser) {
-    return function (arithExprStr) {
-        var parseOut = parser(arithExprStr);
-        if (!parseOut) {
-            pr('arithSolver parser error', parseOut);
-            return;
-        }
-        return computeTree(parseOut[0], arithOps);
-    }
-}
-
-// Simple and advanced calculator parsers
-
-// Convert a list of values separated by same-priority binary infix operations to AST
-function infixT(ops) {
-    return x => {
-        if (x.length < 3) { pr('ERROR: Wrong infix term:',x); return }
-        
-        var i = 0;
-        function get() { return x[i++] }
-        var ret = [];
-        
-        var tok;
-        while (tok = get()) {
-            if (typeof tok == 'string' && ops.indexOf(tok) > -1) {
-                ret.push(get());
-                var args = [];
-                args[1] = ret.pop();
-                args[0] = ret.pop();
-                ret.push({op: tok, args: args});
-            } else {
-                ret.push(tok);
-            }
-        }
-        
-        return ret[0];
-    };
-}
-
-// Tokenizer for arithmetic expressions, needed in some tests
-
-var arithTok = tokenizer({
-    delim: '\\s+',
-    tokens: [
-        ['[\\(\\)]', x => x],
-        ['[\\*\\/\\+\\-]', x => x],
-        ['[a-zA-Z][a-zA-Z0-9]+', x => ({t:'id', d:x})],
-        ['[0-9]+\\.[0-9]+', x => parseFloat(x)],
-        ['[0-9]+', x => parseInt(x)]
-    ]});
-
-// Untokenized versions of parsers for natural numbers, rational decimal numbers
-// and ids (matches variable and function names)
-// These are slower than tokenized versions
-
-var NATNUM = T(REP($(isDigit)), x => {return parseInt(x.join(''))});
-
-var NUM = ALT(T(SEQ(NATNUM, '.', NATNUM),
-                x => {
-                    var ret = x[0] + x[2]/(10*x[2].toString().length);
-                    return ret;
-                }),
-              NATNUM);
-
-var ID = T(SEQ($(isAlpha), REP($(isAlphaNum))), x => x.join(''));
-
-// Tokenized versions of NUM and ID
-
-var ID_T = T($(x => x.t === 'id'), x => x[0].d);
-    
-var NUM_T = $(x => (typeof x === 'number'));
-
-// A simple calculator grammar (no functions)
-
-function makeSimpleCalculatorParser(_NUM) {
-    
-    _NUM = _NUM || NUM;
-    
-    var PARENS = ALT(
-        T(SEQ('(', function(x) { return TERM(x) }, ')'), x => x[1]),
-        _NUM
-    );
-
-    var UNARY = ALT( T(SEQ('-', PARENS), x => {return {op: '-', args: [x[1]]}}),
-                     PARENS );
-
-    var FACTOR = ALT(
-        T(SEQ( UNARY, REP( ALT('*','/'), UNARY) ), infixT(['*','/'])),
-        UNARY
-    );
-
-    var TERM = ALT(
-        T(SEQ( FACTOR, REP( ALT('+', '-'), FACTOR) ), infixT(['+','-'])),
-        FACTOR
-    );
-    
-    return TERM;
-}
-
-// Advanced Calculator: has functions
-
-function makeAdvancedCalculatorParser(_NUM, _ID) {
-
-    var _ID = _ID || ID;
-    
-    var _NUM = _NUM || NUM;
-    
-    var ARGLIST = T(ALT(REP(function(x) { return TERM(x) }, ','),
-                          function(x) { return TERM(x) }),
-                    x => x.filter(y => y != ','));
-
-    var FUNCALL = T(SEQ(_ID, '(', OPT(ARGLIST), ')'),
-                    x => {
-                        var args = [];
-                        //Check if arglist exists
-                        if (x[2] != ')') { args = x[2] }
-                        return {op: x[0], args};
-                    });
-    
-    var PARENS = ALT(
-        T(SEQ('(', function(x) { return TERM(x) }, ')'), x => x[1]),
-        FUNCALL,
-        _NUM
-    );
-
-    var UNARY = ALT( T(SEQ('-', PARENS), x => {return {op: '-', args: [x[1]]}}),
-                     PARENS );
-
-    var FACTOR = ALT(
-        T(SEQ( UNARY, REP( ALT('*','/'), UNARY) ), infixT(['*','/'])),
-        UNARY
-    );
-
-    var TERM = ALT(
-        T(SEQ( FACTOR, REP( ALT('+', '-'), FACTOR) ), infixT(['+','-'])),
-        FACTOR
-    );
-    
-    return TERM;
-}
+var simplecalc = require('./example_simplecalc.js');
+var engcalc = require('./example_engcalc.js');
 
 // Tests of simple|advanced, tokenized|untokenized calculators
+// _T means "tokenized version", it uses tokenizer and thus supports whitespace
 
-var simpleSolver = arithSolver(wrap(makeSimpleCalculatorParser()));
+var simpleSolver = simplecalc._calc;
 
 runTests(prepArithTests(arithTests, simpleSolver), {
     name: 'SIMPLE CALCULATOR (NO TOKENIZER)',
     concise: true
 });
 
-var simpleSolver_T = arithSolver(wrap(makeSimpleCalculatorParser(NUM_T), arithTok));
+var simpleSolver_T = simplecalc._calc_T;
 
 runTests(prepArithTests(arithTests, simpleSolver_T), {
     name: 'SIMPLE CALCULATOR (USE TOKENIZER)',
     concise: true
 });
 
-var advancedSolver = arithSolver(wrap(makeAdvancedCalculatorParser()));
+var advancedSolver = engcalc._calc;
 
 runTests(prepArithTests(arithTests, advancedSolver), {
     name: 'ADVANCED CALCULATOR (NO TOKENIZER)',
     concise: true
 });
 
-var advancedSolver_T = arithSolver(wrap(makeAdvancedCalculatorParser(NUM_T, ID_T), arithTok));
+var advancedSolver_T = engcalc._calc_T;
 
 runTests(prepArithTests(arithTests, advancedSolver_T), {
     name: 'ADVANCED CALCULATOR (USE TOKENIZER)',
