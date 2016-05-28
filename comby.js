@@ -84,6 +84,7 @@ function makeTokenizer(rules) {
             }
         }
         if (!matching) return false;
+        //pr('TOKENS:',tokens);
         return tokens;
     }
 }
@@ -292,6 +293,7 @@ function OPTREM(parser) {
     }
 }
 
+//Accept at least one or more repetitions of parser
 function REP() {
     var parsers = arguments;
     return function (input) {
@@ -323,6 +325,9 @@ function REP() {
     }
 }
 
+// Transform parser result with function transformFn(arr)
+// function receives parser output as an array arr (these args are popped from stack)
+// value returned by function is accepted as final parser result and pushed onto stack
 function T(parser, transformFn) {
     var parsers = arguments;
     return function (input) {
@@ -375,7 +380,7 @@ var ID = T(SEQ($(isAlpha), REP($(isAlphaNum))), x => x.join(''));
 
 // Tokenized versions of NUM and ID
 
-var ID_T = T($(x => x.t === 'id'), x => x[0].d);
+var ID_T = T($(x => x && x.t === 'id'), x => x[0].d);
     
 var NUM_T = $(x => (typeof x === 'number'));
 

@@ -51,18 +51,27 @@ function addFunctions(obj, fns) {
 }
 
 var fromMath = {};
-('abs sign sqrt pow exp log max min sin cos tan atan2').split(' ').forEach(
+('abs sign sqrt pow exp log log2 max min sin arcsin cos arccos tan atan atan2').split(' ').forEach(
     (name) => {fromMath[name] = Math[name]});
 
 addFunctions(arithOps, fromMath);
 
-function computeTree(opTree, ops) {
+var arithEnv = {
+    PI: 3.141592653589793,
+    E: 2.718281828459045
+}
+
+function computeTree(opTree, opMap, env) {
     if (typeof opTree === 'number') {
         return opTree;
     } else if (typeof opTree === 'object') {
-        if (opTree.op && arithOps[opTree.op]) {
-            var ret = arithOps[opTree.op](opTree.args.map(computeTree));
-            return ret;
+        if (opTree.op === 'var') {
+            if (env && opTree.id && typeof env[opTree.id] === 'number') { return env[opTree.id] }
+            else { pr('Error in computeTree: undefined var \"'+opTree.id+'\"'); return }
+        } else if (opTree.op && opMap[opTree.op]) {
+            var _args = new Array(opTree.args.length);
+            for (var i=0; i<opTree.args.length; i++) { _args[i] = computeTree(opTree.args[i], opMap, env) }
+            return opMap[opTree.op](_args);
         } else {
             pr('Error in computeTree: Unknown op \"'+opTree.op+'\" in', opTree);
         }
@@ -80,7 +89,7 @@ function arithSolver(parser) {
             pr('arithSolver parser error', parseOut);
             return;
         }
-        return computeTree(parseOut[0], arithOps);
+        return computeTree(parseOut[0], arithOps, arithEnv);
     }
 }
 
@@ -117,10 +126,10 @@ function infixT(ops) {
 var arithTok = tokenizer({
     delim: '\\s+',
     tokens: [
-        ['[\\(\\)]', x => x],
+        ['[,\\(\\)]', x => x],
         ['[\\*\\/\\+\\-]', x => x],
-        ['[a-zA-Z][a-zA-Z0-9]+', x => ({t:'id', d:x})],
-        ['[0-9]+\\.[0-9]+', x => parseFloat(x)],
+        ['[a-zA-Z](?:[a-zA-Z0-9]+)?', x => ({t:'id', d:x})],
+        ['[0-9]+[eE][\\+\\-]?[0-9]+|[0-9]+\\.(?:[0-9]+)?(?:[eE][\\+\\-]?[0-9]+)?', x => parseFloat(x)],
         ['[0-9]+', x => parseInt(x)]
     ]});
 
@@ -136,11 +145,12 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
     
     var _NUM = _NUM || NUM;
     
-    var ARGLIST = T(ALT(REP(function(x) { return TERM(x) }, ','),
-                          function(x) { return TERM(x) }),
+    var ARGLIST = T(ALT(SEQ(REP(function(x) { return TERM(x) }, ','), function(x) { return TERM(x) }),
+                        OPT(function(x) { return TERM(x) })),
                     x => x.filter(y => y != ','));
+    
 
-    var FUNCALL = T(SEQ(_ID, '(', OPT(ARGLIST), ')'),
+    var FUNCALL = T(SEQ(_ID, '(', ARGLIST, ')'),
                     x => {
                         var args = [];
                         //Check if arglist exists
@@ -151,7 +161,8 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
     var PARENS = ALT(
         T(SEQ('(', function(x) { return TERM(x) }, ')'), x => x[1]),
         FUNCALL,
-        _NUM
+        _NUM,
+        T(_ID, x => ({op:'var', id:x[0]}))
     );
 
     var UNARY = ALT( T(SEQ('-', PARENS), x => {return {op: '-', args: [x[1]]}}),
@@ -167,30 +178,36 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
         FACTOR
     );
     
-    return TERM;
+    //function tst(expr) { pr(expr,':',pr(arithTok(expr)),FUNCALL(new pState(arithTok(expr),0))) }
+    //['sin()', 'sin(1)', 'sin(1,2)', 'sin(1,2,3)', 'sin(1 2)', 'sin(1,2 3)'].map(tst);
+    
+    return SEQ(TERM, END);
 }
 
 var advancedSolver = arithSolver(wrap(makeAdvancedCalculatorParser()));
 
 var advancedSolver_T = arithSolver(wrap(makeAdvancedCalculatorParser(NUM_T, ID_T), arithTok));
 
-function REPL(inviteMsg, errMsg, evalFn, ansPrefix){
-    ansPrefix = ansPrefix || '>';
+function REPL(inviteMsg, errMsg, evalFn, printFn){
     var readline = require('readline');
     var rl = readline.createInterface({input: process.stdin, output: process.stdout});
+    var invited = false;
     function _REPL() {
-        rl.question(inviteMsg, (answer) => {
-          var ans = evalFn(answer);
-          if (ans !== undefined) pr(ansPrefix, answer, '=',ans);
-          else pr(ansPrefix, errMsg);
-          _REPL();
+        rl.question((invited ? '' : inviteMsg)+'>', (answer) => {
+            if (!invited) invited = true;
+            var ans = evalFn(answer);
+            if (ans !== undefined) printFn(ans, answer);
+            else pr(errMsg);
+            _REPL();
         });
     }
     _REPL();
 }
 
 if (require.main === module) {
-    REPL('Enter arithmetic expression:\n', 'Error', advancedSolver_T);
+    REPL('Engineering calculator v0.85\nAvailable functions: '+Object.keys(arithOps).filter(x => x.length > 1).join(' ')+
+    '\nAvailable variables: '+Object.keys(arithEnv).join(' ')+
+    '\nType arithmetic expressions and press ENTER:\n','Error', advancedSolver_T, (out, inp) => pr(inp,'=',out));
 }
 
 module.exports = {
