@@ -65,7 +65,7 @@ function runTests(tests, opt) {
         if (opt.procResult) ret = opt.procResult(_ret);
         
         var compareTo = (opt.prepCompare && opt.prepCompare(test[2])) || test[2];
-        var compare = opt.compare || ((a,b) => (a === b));
+        var compare = opt.compare || ((a,b) => (a === b)||(isNaN(a)&&isNaN(b)));
         
         if (compare(ret, compareTo)) {
             if (!opt.concise) pr('TEST',i,'PASSED');
@@ -141,12 +141,16 @@ var basicArithTests = [
     ['97-24*2-84', -35]
 ];
 
-function genRandArithTests(N) {
+function _genRandArithExprs(N, enParens, enFns, enVar) {
     var ops = '+-*/';
     var unOps = '-';
     var unP = 0.1;
-    var parenP = 0.2;
+    var parenP = 0.1;
+    var varP = 0.2;
     var out = [];
+    var fns1 = 'sin cos log sqrt'.split(' ').map(name => {global[name] = Math[name]; return name});
+    var fn1p = 0.3;
+    
     for (var i=0; i<N; i++) {
         var expr = '';
         var num = false;
@@ -161,7 +165,15 @@ function genRandArithTests(N) {
                         expr += unop;
                     }
                 }
-                expr += randInt();
+                if (enParens && Math.random() < parenP) {
+                    expr += '('+randItem(_genRandArithExprs(4))+')';
+                } else if (enFns && Math.random() < fn1p) {
+                    expr += randItem(fns1)+'('+randItem(_genRandArithExprs(3))+')';
+                } else if (enVar && Math.random() < varP) {
+                    expr += enVar;
+                } else {
+                    expr += randInt();
+                }
             }
             num = !num;
         }
@@ -170,58 +182,76 @@ function genRandArithTests(N) {
         }
         out.push(expr);
     }
-    return out.map(expr => [expr, eval(expr)]);
+    return out;
 }
 
-var arithTests = [].concat(basicArithTests, genRandArithTests(100));
+function genRandArithTests(N, enParens, enFns) {
+    return _genRandArithExprs(N, enParens, enFns).map(expr => [expr, eval(expr)]);
+}
+
+var simpleArithTests = [].concat(basicArithTests, genRandArithTests(100));
+
+var advancedArithTests = [].concat(basicArithTests, genRandArithTests(100, true, true));
 
 function prepArithTests(tests, solver) {
     return tests.map(x => [x[0], solver, x[1]]);
 }
 
+var deriveTests = _genRandArithExprs(30, false, false, 'x');
+
+function prepDeriveTests(tests) {
+    return tests.map(x => [x, function (expr) {
+        //pr('EXPR:',expr);
+        var x = Math.random()*10.0+2;
+        var diff = Math.abs(numericDerive(expr, 'x', x) - symbolicDerive(expr, 'x', x));
+        //pr(diff);
+        return diff;
+    }, true]);
+}
+
 var simplecalc = require('./example_simplecalc.js');
 var engcalc = require('./example_engcalc.js');
+var derivecalc = require('./example_derive.js');
 
-// Tests of simple|advanced, tokenized|untokenized calculators
+var numericDerive = derivecalc.numericDerive;
+var symbolicDerive = derivecalc.symbolicDerive;
+
+// Tests of simple|advanced, tokenized|untokenized calculators and symbolic differentiator
 // _T means "tokenized version", it uses tokenizer and thus supports whitespace
 
 var simpleSolver = simplecalc._calc;
 
-runTests(prepArithTests(arithTests, simpleSolver), {
+runTests(prepArithTests(simpleArithTests, simpleSolver), {
     name: 'SIMPLE CALCULATOR (NO TOKENIZER)',
     concise: true
 });
 
 var simpleSolver_T = simplecalc._calc_T;
 
-runTests(prepArithTests(arithTests, simpleSolver_T), {
+runTests(prepArithTests(simpleArithTests, simpleSolver_T), {
     name: 'SIMPLE CALCULATOR (USE TOKENIZER)',
     concise: true
 });
 
 var advancedSolver = engcalc._calc;
 
-runTests(prepArithTests(arithTests, advancedSolver), {
+runTests(prepArithTests(advancedArithTests, advancedSolver), {
     name: 'ADVANCED CALCULATOR (NO TOKENIZER)',
     concise: true
 });
 
 var advancedSolver_T = engcalc._calc_T;
 
-runTests(prepArithTests(arithTests, advancedSolver_T), {
+runTests(prepArithTests(advancedArithTests, advancedSolver_T), {
     name: 'ADVANCED CALCULATOR (USE TOKENIZER)',
     concise: true
 });
 
-
-
-
-
-
-
-
-
-
+runTests(prepDeriveTests(deriveTests), {
+    name: 'SYMBOLIC DERIVATIVE TESTS',
+    concise: true,
+    compare: (diff) => (diff < 0.01)
+});
 
 
 

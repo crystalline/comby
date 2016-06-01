@@ -176,7 +176,7 @@ function LISTTAKETO(l, target) {
     return arr;
 }
 
-function ARR2REP(arr) {
+function ARR2LIST(arr) {
     var ret;
     for (var i=arr.length-1; i>-1; i--) {
         ret = CONS(arr[i], ret);
@@ -351,13 +351,13 @@ function END(input) {
     }
 }
 
-function wrapParser(p, tokenizer) {
+function wrapParser(p, tokenizer, doNotReverse) {
     return function (str) {
         var input = str;
         if (tokenizer) { input = tokenizer(str) }
         var ret = p(new pState(input, 0));
-        if (ret) { return LIST2ARR(ret.p) }
-        else { return ret }
+        if (ret) { return doNotReverse ? LIST2ARR(ret.p) : LIST2ARR(ret.p).reverse() }
+        else { return }
     }
 }
 
