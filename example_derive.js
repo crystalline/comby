@@ -39,9 +39,9 @@ function cloneObject(obj) {
     return temp;
 }
 
-// Arithmetic Expression Tree Evaluator
+// Arithmetic Expression Tree Derivative Evaluator
 
-var arithOps = {
+var arithDeriveOps = {
     '+': (arr, varName) => ({op: '+', args: arr.map(expr => deriveTree(expr, varName))}),
     '-': (arr, varName) => {
         if (arr.length == 1) { return {op:'-', args: [deriveTree(arr[0], varName)]} }
@@ -62,6 +62,10 @@ var arithOps = {
             {op: '*', args: [b,b]}
         ]}));
     },
+    sin: (arr, varName) => ({op:'*', args: [{op: 'cos', args: [arr[0]]}, deriveTree(arr[0], varName)]}),
+    cos: (arr, varName) => ({op: '-', args: [{op:'*', args: [{op: 'sin', args: [arr[0]]}, deriveTree(arr[0], varName)]}]}),
+    sqrt: (arr, varName) => ({op: '/', args: [deriveTree(arr[0], varName), {op: '*', args:[2,{op: 'sqrt', args:[arr[0]]}]}]}),
+    log: (arr, varName) => ({op: '/', args: [deriveTree(arr[0], varName), arr[0]]})
 }
 
 var arithComputeOps = {
@@ -71,7 +75,6 @@ var arithComputeOps = {
     '/': (arr) => reduce(arr, (a,b) => a/b),
 }
 
-/*
 function addFunctions(obj, fns) {
     for (fname in fns) {
         (function (name, val) {
@@ -81,18 +84,18 @@ function addFunctions(obj, fns) {
 }
 
 var fromMath = {};
-('abs sign sqrt pow exp log log2 max min sin asin cos acos tan atan atan2').split(' ').forEach(
+//('abs sign sqrt pow exp log log2 max min sin asin cos acos tan atan atan2').split(' ').forEach(
+('sin cos log sqrt').split(' ').forEach(
     (name) => {fromMath[name] = Math[name]});
 
-addFunctions(arithOps, fromMath);
-*/
+addFunctions(arithComputeOps, fromMath);
 
 var arithEnv = {
     PI: 3.141592653589793,
     E: 2.718281828459045
 }
 
-function deriveTree(opTree, varName, opMap = arithOps, env = arithEnv) {
+function deriveTree(opTree, varName, opMap = arithDeriveOps, env = arithEnv) {
     if (typeof opTree === 'number') {
         return 0;
     } else if (typeof opTree === 'object') {
@@ -129,6 +132,56 @@ function computeTree(opTree, opMap, env) {
     }
 }
 
+            /*
+            if (opTree.op === '*') {
+                if (constants.filter(x => x === 0).length) return 0;
+                if (res !== 1) { _args.unshift(res) }
+                else if (_args.length == 1) { return _args[0] }
+            }
+            */
+
+function simplifyTree(opTree, opMap) {
+    if (typeof opTree === 'object' && opTree.op && opMap[opTree.op]) {
+        var _args = new Array(opTree.args.length);
+        for (var i=0; i<opTree.args.length; i++) { _args[i] = simplifyTree(opTree.args[i], opMap) }
+        
+        //Pull up lower level + and * exprs
+        if (opTree.op === '+' || '*') {
+            for (var i=0; i<opTree.args.length; i++) {
+                if (typeof x === 'object' && (x.op === opTree.op)) {
+                    _args.splice.apply([i,1].concat(x.args));
+                }
+            }
+        }
+        
+        var constants = _args.filter(x => typeof x === 'number');
+        
+        //If all arguments are constants then just return computed value, don't do it if non-numeric constants are present
+        if (constants.length == opTree.args.length) {
+            return computeTree(opTree, opMap);
+        } else if (constants.length && opTree.op === '+') {
+            var res = constants[0];
+            if (constants.length > 1) { res = opMap['+'](constants) }
+            _args = _args.filter(x => typeof x !== 'number');
+            if (res !== 0) { _args.unshift(res) }
+            else if (_args.length == 1) { return _args[0] }
+            return {op: opTree.op, args: _args };
+        } else if (constants.length && opTree.op === '*') {
+            var res = constants[0];
+            if (constants.length > 1) { res = opMap['*'](constants) }
+            _args = _args.filter(x => typeof x !== 'number');
+            //pr('op:',opTree.op,'constants:',constants,'res:',res,'_args:',_args);
+            if (res !== 1) { _args.unshift(res) }
+            else if (_args.length == 1) { return _args[0] }
+            return {op: opTree.op, args: _args };
+        } else {
+            return {op: opTree.op, args: _args}
+        }
+    } else {
+        return opTree;
+    }
+}
+
 function treeToSEXP(opTree) {
     if (typeof opTree === 'number') {
         return opTree.toString();
@@ -146,7 +199,9 @@ function treeToSEXP(opTree) {
 
 // Arithmetic expression solver 
 
-function makeDeriveComp(parser) {
+function makeDeriveComp(parser, preSimplify, postSimplify) {
+    preSimplify = preSimplify || function (x) { return x }
+    postSimplify = postSimplify || function (x) { return x }
     return function (arithExprStr) {
         pr(arithExprStr);
         var parseOut = parser(arithExprStr);
@@ -155,7 +210,7 @@ function makeDeriveComp(parser) {
             return;
         }
         pr(parseOut);
-        var expr = parseOut[0];
+        var expr = preSimplify(parseOut[0]);
         var varName = parseOut[2];
         var varValue = parseOut[4];
         pr('EXPR:',expr);
@@ -164,9 +219,9 @@ function makeDeriveComp(parser) {
         if (typeof varValue === 'number') {
             var env = {};
             env[varName] = varValue;
-            return computeTree(deriveTree(expr, varName), arithComputeOps, env);
+            return computeTree(postSimplify(deriveTree(expr, varName)), arithComputeOps, env);
         } else {
-            return deriveTree(expr, varName);
+            return postSimplify(deriveTree(expr, varName));
         }
     }
 }
@@ -190,7 +245,9 @@ function makeArithSolver(parser) {
 function symbolicDerive(exprStr, varName, varVal) {
     var env = {};
     env[varName] = varVal;
-    return computeTree(deriveTree(arithParser(exprStr)[0], varName), arithComputeOps, env);
+    return computeTree(
+        arithSimplify(deriveTree(arithSimplify(arithParser(exprStr)[0]), varName)),
+        arithComputeOps, env);
 }
 
 // Simple and advanced calculator parsers
@@ -283,8 +340,12 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
     return TERM
 }
 
+var calcParser = wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), END), arithTok);
+
+var arithSimplify = function (tree) { return simplifyTree(tree, arithComputeOps) }
+
 //var deriveComputer = makeDeriveComp(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), ',', ID_T, END), arithTok));
-var deriveComputer = makeDeriveComp(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), ',', ID_T, OPT(SEQ('=', NUM_T)), END), arithTok));
+var deriveComputer = makeDeriveComp(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), ',', ID_T, OPT(SEQ('=', NUM_T)), END), arithTok), arithSimplify, arithSimplify);
 
 var arithSolve = makeArithSolver(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), END), arithTok));
 
@@ -307,6 +368,13 @@ function numericDerive(exprStr, varName, varVal, eps = 1e-7) {
 //pr(numericDerive('2*x', 'x', -1000));
 //pr(numericDerive('1/x', 'x', 0.2));
 //pr(symbolicDerive('1/x', 'x', 0.2));
+pr(numericDerive('4+sqrt(x*92-74)+cos(x*60*2)/11', 'x', 10));
+pr(symbolicDerive('4+sqrt(x*92-74)+cos(x*60*2)/11', 'x', 10));
+
+pr(numericDerive('x/(77*83/99)/sqrt(x*100/90)/65/(88+85)-63/56-42', 'x', 10));
+pr(symbolicDerive('x/(77*83/99)/sqrt(x*100/90)/65/(88+85)-63/56-42', 'x', 10));
+
+pr(treeToSEXP(arithSimplify(calcParser('1*3*4*6*6*sin(x/x/x)')[0])));
 
 function REPL(inviteMsg, errMsg, evalFn, printFn){
     var readline = require('readline');
@@ -325,7 +393,7 @@ function REPL(inviteMsg, errMsg, evalFn, printFn){
 }
 
 if (require.main === module) {
-    REPL('Symbolic differentiator v0.85\nAvailable functions: '+Object.keys(arithOps).filter(x => x.length > 1).join(' ')+
+    REPL('Symbolic differentiator v0.85\nAvailable functions: '+Object.keys(arithDeriveOps).filter(x => x.length > 1).join(' ')+
     '\nAvailable variables: '+Object.keys(arithEnv).join(' ')+
     '\nType arithmetic expressions and press ENTER:\n','Error',
     function (expr) { return treeToSEXP(deriveComputer(expr)) },
@@ -334,6 +402,8 @@ if (require.main === module) {
 
 module.exports = {
     derive: deriveComputer,
+    simplify: arithSimplify,
+    calcParser: calcParser,
     numericDerive: numericDerive,
     symbolicDerive: symbolicDerive
 }

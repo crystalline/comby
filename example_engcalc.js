@@ -32,6 +32,12 @@ var NUM_T = C.NUM_T;
 
 var reduce = C.reduce;
 
+function cloneObject(obj) {
+    if (obj === null || typeof obj !== 'object') { return obj }
+    var temp = obj.constructor();
+    for (var key in obj) { temp[key] = cloneObject(obj[key]) }
+    return temp;
+}
 
 // Arithmetic Expression Tree Evaluator
 
@@ -82,14 +88,23 @@ function computeTree(opTree, opMap, env) {
 
 // Arithmetic expression solver 
 
-function arithSolver(parser) {
-    return function (arithExprStr) {
-        var parseOut = parser(arithExprStr);
+function makeArithSolver(parser) {
+    return function (arithExprStr, env) {
+        if (typeof arithExprStr === 'object') {
+            var parseOut = arithExprStr;
+        } else {
+            var parseOut = parser(arithExprStr);
+        }
         if (!parseOut) {
             pr('arithSolver parser error', parseOut);
             return;
         }
-        return computeTree(parseOut[0], arithOps, arithEnv);
+        var evalEnv = arithEnv;
+        if (env) {
+            evalEnv = cloneObject(env);
+            evalEnv.__proto__ = arithEnv;
+        }
+        return computeTree(parseOut[0], arithOps, evalEnv);
     }
 }
 
@@ -184,9 +199,9 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
     return SEQ(TERM, END);
 }
 
-var advancedSolver = arithSolver(wrap(makeAdvancedCalculatorParser()));
+var advancedSolver = makeArithSolver(wrap(makeAdvancedCalculatorParser()));
 
-var advancedSolver_T = arithSolver(wrap(makeAdvancedCalculatorParser(NUM_T, ID_T), arithTok));
+var advancedSolver_T = makeArithSolver(wrap(makeAdvancedCalculatorParser(NUM_T, ID_T), arithTok));
 
 function REPL(inviteMsg, errMsg, evalFn, printFn){
     var readline = require('readline');

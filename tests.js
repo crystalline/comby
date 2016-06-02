@@ -168,7 +168,10 @@ function _genRandArithExprs(N, enParens, enFns, enVar) {
                 if (enParens && Math.random() < parenP) {
                     expr += '('+randItem(_genRandArithExprs(4))+')';
                 } else if (enFns && Math.random() < fn1p) {
-                    expr += randItem(fns1)+'('+randItem(_genRandArithExprs(3))+')';
+                    if (!enVar || Math.random() < 0.5)
+                        expr += randItem(fns1)+'('+randItem(_genRandArithExprs(6))+')';
+                    else
+                        expr += randItem(fns1)+'('+enVar+'*'+randItem(_genRandArithExprs(6))+')';
                 } else if (enVar && Math.random() < varP) {
                     expr += enVar;
                 } else {
@@ -197,15 +200,31 @@ function prepArithTests(tests, solver) {
     return tests.map(x => [x[0], solver, x[1]]);
 }
 
-var deriveTests = _genRandArithExprs(30, false, false, 'x');
+var deriveTests = ['1+x+1+sin(cos(log(sqrt(2*x+40)+30)*7))'].concat(_genRandArithExprs(50, true, true, 'x'));
 
 function prepDeriveTests(tests) {
-    return tests.map(x => [x, function (expr) {
-        //pr('EXPR:',expr);
+    return tests.filter(expr => !isNaN(advancedSolver_T(expr, {x:10}))).map(x => [x, function (expr) {
         var x = Math.random()*10.0+2;
-        var diff = Math.abs(numericDerive(expr, 'x', x) - symbolicDerive(expr, 'x', x));
-        //pr(diff);
+        var num = numericDerive(expr, 'x', x);
+        var sym = symbolicDerive(expr, 'x', x);
+        var deNom = 0.5*(Math.abs(num)+Math.abs(sym));
+        if (deNom === 0) deNom = 1;
+        var diff = Math.abs(num - sym)/deNom;
+        if (isNaN(num)) { pr('Ignoring NaN in Derive test'); return 0 }
+        if (isNaN(diff) || diff > 0.1) {
+            pr('EXPR:',expr,'NUM:',num,'SYM:',sym,'deNom:',deNom);
+        }
         return diff;
+    }, true]);
+}
+
+function prepSimplifyTests(tests) {
+    return tests.filter(expr => !isNaN(advancedSolver_T(expr, {x:10}))).map(x => [x, function (expr) {
+        var val = Math.random()*10.0+2;
+        var ret = advancedSolver_T(expr, {x:val});
+        if (isNaN(ret)) { pr('Ignoring NaN in Simplify test'); return 0 }
+        var sret = advancedSolver_T(simplify(calcParser(expr)), {x:val});
+        return Math.abs(sret - ret);
     }, true]);
 }
 
@@ -215,6 +234,8 @@ var derivecalc = require('./example_derive.js');
 
 var numericDerive = derivecalc.numericDerive;
 var symbolicDerive = derivecalc.symbolicDerive;
+var simplify = derivecalc.simplify;
+var calcParser = derivecalc.calcParser;
 
 // Tests of simple|advanced, tokenized|untokenized calculators and symbolic differentiator
 // _T means "tokenized version", it uses tokenizer and thus supports whitespace
@@ -234,6 +255,7 @@ runTests(prepArithTests(simpleArithTests, simpleSolver_T), {
 });
 
 var advancedSolver = engcalc._calc;
+var eng_computeTree = engcalc.computeTree;
 
 runTests(prepArithTests(advancedArithTests, advancedSolver), {
     name: 'ADVANCED CALCULATOR (NO TOKENIZER)',
@@ -247,18 +269,17 @@ runTests(prepArithTests(advancedArithTests, advancedSolver_T), {
     concise: true
 });
 
-runTests(prepDeriveTests(deriveTests), {
-    name: 'SYMBOLIC DERIVATIVE TESTS',
+runTests(prepSimplifyTests(deriveTests), {
+    name: 'SYMBOLIC SIMPLIFICATION',
     concise: true,
     compare: (diff) => (diff < 0.01)
 });
 
-
-
-
-
-
-
+runTests(prepDeriveTests(deriveTests), {
+    name: 'SYMBOLIC DERIVATIVE',
+    concise: true,
+    compare: (diff) => (diff < 0.01)
+});
 
 
 
