@@ -5,6 +5,11 @@
 
 var C = require('./comby.js');
 
+var util = require('./util.js');
+var reduce = util.reduce;
+var cloneObject = util.cloneObject;
+var REPL = util.REPL;
+
 var pr = console.log;
 
 var $ = C.$;
@@ -29,15 +34,6 @@ var NUM = C.NUM;
 var ID = C.ID;
 var ID_T = C.ID_T;
 var NUM_T = C.NUM_T;
-
-var reduce = C.reduce;
-
-function cloneObject(obj) {
-    if (obj === null || typeof obj !== 'object') { return obj }
-    var temp = obj.constructor();
-    for (var key in obj) { temp[key] = cloneObject(obj[key]) }
-    return temp;
-}
 
 // Arithmetic Expression Tree Evaluator
 
@@ -203,24 +199,8 @@ var advancedSolver = makeArithSolver(wrap(makeAdvancedCalculatorParser()));
 
 var advancedSolver_T = makeArithSolver(wrap(makeAdvancedCalculatorParser(NUM_T, ID_T), arithTok));
 
-function REPL(inviteMsg, errMsg, evalFn, printFn){
-    var readline = require('readline');
-    var rl = readline.createInterface({input: process.stdin, output: process.stdout});
-    var invited = false;
-    function _REPL() {
-        rl.question((invited ? '' : inviteMsg)+'>', (answer) => {
-            if (!invited) invited = true;
-            var ans = evalFn(answer);
-            if (ans !== undefined) printFn(ans, answer);
-            else pr(errMsg);
-            _REPL();
-        });
-    }
-    _REPL();
-}
-
 if (require.main === module) {
-    REPL('Engineering calculator v0.85\nAvailable functions: '+Object.keys(arithOps).filter(x => x.length > 1).join(' ')+
+    REPL('Engineering calculator v0.91\nAvailable functions: '+Object.keys(arithOps).filter(x => x.length > 1).join(' ')+
     '\nAvailable variables: '+Object.keys(arithEnv).join(' ')+
     '\nType arithmetic expressions and press ENTER:\n','Error', advancedSolver_T, (out, inp) => pr(inp,'=',out));
 }

@@ -91,17 +91,6 @@ function makeTokenizer(rules) {
 
 // Parser combinator utils
 
-function reduce(arr, fn) {
-    if (arr.length < 2) return arr[0];
-    else {
-        var acc = fn(arr[0], arr[1]);
-        for (var i=2; i<arr.length; i++) {
-            acc = fn(acc, arr[i]);
-        }
-        return acc;
-    }
-}
-
 function pState(seq, i, parsed) {
     this.s = seq;
     this.i = i || 0;;
@@ -401,7 +390,6 @@ module.exports = {
     tokenizer: makeTokenizer,
     wrap: wrapParser,
     pState: pState,
-    reduce: reduce,
     isDigit: isDigit,
     isNumber: isNumber,
     isWhitespace: isWhitespace,

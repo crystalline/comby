@@ -5,6 +5,10 @@
 
 var C = require('./comby.js');
 
+var util = require('./util.js');
+var reduce = util.reduce;
+var REPL = util.REPL;
+
 var pr = console.log;
 
 var $ = C.$;
@@ -27,8 +31,6 @@ var pState = C.pState;
 var NATNUM = C.NATNUM;
 var NUM = C.NUM;
 var NUM_T = C.NUM_T;
-
-var reduce = C.reduce;
 
 // Arithmetic Expression Tree Evaluator
 
@@ -138,23 +140,8 @@ var simpleSolver = arithSolver(wrap(makeSimpleCalculatorParser()));
 
 var simpleSolver_T = arithSolver(wrap(makeSimpleCalculatorParser(NUM_T), arithTok));
 
-function REPL(inviteMsg, errMsg, evalFn, ansPrefix){
-    ansPrefix = ansPrefix || '>';
-    var readline = require('readline');
-    var rl = readline.createInterface({input: process.stdin, output: process.stdout});
-    function _REPL() {
-        rl.question(inviteMsg, (answer) => {
-          var ans = evalFn(answer);
-          if (ans !== undefined) pr(ansPrefix, answer, '=',ans);
-          else pr(ansPrefix, errMsg);
-          _REPL();
-        });
-    }
-    _REPL();
-}
-
 if (require.main === module) {
-    REPL('Enter arithmetic expression:\n', 'Error', simpleSolver_T);
+    REPL('Simple calculator v0.91\nType arithmetic expressions and press ENTER:\n','Error', simpleSolver_T, (out, inp) => pr(inp,'=',out));
 }
 
 module.exports = {

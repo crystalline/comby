@@ -4,6 +4,7 @@
 // Licensed under MIT license.
 
 var C = require('./comby.js');
+var util = require('./util.js');
 
 var pr = console.log;
 
@@ -23,33 +24,6 @@ var isWhitespace = C.isWhitespace;
 var isAlpha = C.isAlpha;
 var isAlphaNum = C.isAlphaNum;
 var pState = C.pState;
-
-function randItem(array, random) {
-    random = random || Math.random;
-    return array[Math.floor(random()*array.length)];
-}
-
-function randInt(_min,_max) {
-    _min = _min || 0;
-    _max = _max || 100;
-    return Math.ceil((_max-_min)*Math.random())+_min;
-}
-
-function _reduce(arr, fn) {
-    if (arr.length < 2) return arr[0];
-    else {
-        var acc = fn(arr[0], arr[1]);
-        for (var i=2; i<arr.length; i++) {
-            acc = fn(acc, arr[i]);
-        }
-        return acc;
-    }
-}
-
-function timeDiff(startTime, digits) {
-    digits = digits || 1;
-    return ((Date.now()-startTime)/1000).toFixed(digits)+'s';
-}
 
 function runTests(tests, opt) {
     opt = opt || {};
@@ -78,7 +52,7 @@ function runTests(tests, opt) {
             failed.push(i);
         }
     });
-    var tStr = '@ TIME: '+timeDiff(t, 3);
+    var tStr = '@ TIME: '+util.timeDiff(t, 3);
     if (failed.length) {
         pr('SOME TESTS FAILED:', failed, tStr);
     } else {
@@ -154,34 +128,34 @@ function _genRandArithExprs(N, enParens, enFns, enVar) {
     for (var i=0; i<N; i++) {
         var expr = '';
         var num = false;
-        var pN = randInt(1,N);
+        var pN = util.randInt(1,N);
         for (var j=0; j<pN; j++) {
             if (num) {
-                expr += randItem(ops);
+                expr += util.randItem(ops);
             } else {
                 if (Math.random() < unP) {
-                    var unop = randItem(unOps);
+                    var unop = util.randItem(unOps);
                     if (expr.length && expr[expr.length-1] !== unop) {
                         expr += unop;
                     }
                 }
                 if (enParens && Math.random() < parenP) {
-                    expr += '('+randItem(_genRandArithExprs(4))+')';
+                    expr += '('+util.randItem(_genRandArithExprs(4))+')';
                 } else if (enFns && Math.random() < fn1p) {
                     if (!enVar || Math.random() < 0.5)
-                        expr += randItem(fns1)+'('+randItem(_genRandArithExprs(6))+')';
+                        expr += util.randItem(fns1)+'('+util.randItem(_genRandArithExprs(6))+')';
                     else
-                        expr += randItem(fns1)+'('+enVar+'*'+randItem(_genRandArithExprs(6))+')';
+                        expr += util.randItem(fns1)+'('+enVar+'*'+util.randItem(_genRandArithExprs(6))+')';
                 } else if (enVar && Math.random() < varP) {
                     expr += enVar;
                 } else {
-                    expr += randInt();
+                    expr += util.randInt();
                 }
             }
             num = !num;
         }
         if (!num) {
-           expr += randInt();
+           expr += util.randInt();
         }
         out.push(expr);
     }

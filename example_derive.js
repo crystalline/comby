@@ -5,6 +5,11 @@
 
 var C = require('./comby.js');
 
+var util = require('./util.js');
+var reduce = util.reduce;
+var cloneObject = util.cloneObject;
+var REPL = util.REPL;
+
 var pr = console.log;
 
 var $ = C.$;
@@ -29,15 +34,6 @@ var NUM = C.NUM;
 var ID = C.ID;
 var ID_T = C.ID_T;
 var NUM_T = C.NUM_T;
-
-var reduce = C.reduce;
-
-function cloneObject(obj) {
-    if (obj === null || typeof obj !== 'object') { return obj }
-    var temp = obj.constructor();
-    for (var key in obj) { temp[key] = cloneObject(obj[key]) }
-    return temp;
-}
 
 // Arithmetic Expression Tree Derivative Evaluator
 
@@ -131,14 +127,6 @@ function computeTree(opTree, opMap, env) {
         pr('Error in computeTree: Unknown argument', opTree);
     }
 }
-
-            /*
-            if (opTree.op === '*') {
-                if (constants.filter(x => x === 0).length) return 0;
-                if (res !== 1) { _args.unshift(res) }
-                else if (_args.length == 1) { return _args[0] }
-            }
-            */
 
 function simplifyTree(opTree, opMap) {
     if (typeof opTree === 'object' && opTree.op && opMap[opTree.op]) {
@@ -291,10 +279,6 @@ var arithTok = tokenizer({
         ['[0-9]+', x => parseInt(x)]
     ]});
 
-// Untokenized versions of parsers for natural numbers, rational decimal numbers
-// and ids (matches variable and function names)
-// These are slower than tokenized versions
-
 // Advanced Calculator: has functions
 
 function makeAdvancedCalculatorParser(_NUM, _ID) {
@@ -335,8 +319,7 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
         T(SEQ( FACTOR, REP( ALT('+', '-'), FACTOR) ), infixT(['+','-'])),
         FACTOR
     );
-       
-    //return SEQ(TERM, ',', _ID, END);
+    
     return TERM
 }
 
@@ -344,17 +327,11 @@ var calcParser = wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), END), arith
 
 var arithSimplify = function (tree) { return simplifyTree(tree, arithComputeOps) }
 
-//var deriveComputer = makeDeriveComp(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), ',', ID_T, END), arithTok));
 var deriveComputer = makeDeriveComp(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), ',', ID_T, OPT(SEQ('=', NUM_T)), END), arithTok), arithSimplify, arithSimplify);
 
 var arithSolve = makeArithSolver(wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), END), arithTok));
 
 var arithParser = wrap(SEQ(makeAdvancedCalculatorParser(NUM_T, ID_T), END), arithTok);
-
-//pr(treeToSEXP(arithParser('1+x*10')[0]));
-
-//pr(arithSolve('x+1', {x:10}));
-//pr(arithSolve('1*x', {x:10}));
 
 function numericDerive(exprStr, varName, varVal, eps = 1e-7) {
     var env = {};
@@ -365,32 +342,19 @@ function numericDerive(exprStr, varName, varVal, eps = 1e-7) {
     return (right-left)/(2*eps);
 }
 
-//pr(numericDerive('2*x', 'x', -1000));
-//pr(numericDerive('1/x', 'x', 0.2));
-//pr(symbolicDerive('1/x', 'x', 0.2));
+/*
+pr(treeToSEXP(arithParser('1+x*10')[0]));
+pr(arithSolve('x+1', {x:10}));
+pr(arithSolve('1*x', {x:10}));
+pr(numericDerive('2*x', 'x', -1000));
+pr(numericDerive('1/x', 'x', 0.2));
+pr(symbolicDerive('1/x', 'x', 0.2));
 pr(numericDerive('4+sqrt(x*92-74)+cos(x*60*2)/11', 'x', 10));
 pr(symbolicDerive('4+sqrt(x*92-74)+cos(x*60*2)/11', 'x', 10));
-
 pr(numericDerive('x/(77*83/99)/sqrt(x*100/90)/65/(88+85)-63/56-42', 'x', 10));
 pr(symbolicDerive('x/(77*83/99)/sqrt(x*100/90)/65/(88+85)-63/56-42', 'x', 10));
-
 pr(treeToSEXP(arithSimplify(calcParser('1*3*4*6*6*sin(x/x/x)')[0])));
-
-function REPL(inviteMsg, errMsg, evalFn, printFn){
-    var readline = require('readline');
-    var rl = readline.createInterface({input: process.stdin, output: process.stdout});
-    var invited = false;
-    function _REPL() {
-        rl.question((invited ? '' : inviteMsg)+'>', (answer) => {
-            if (!invited) invited = true;
-            var ans = evalFn(answer);
-            if (ans !== undefined) printFn(ans, answer);
-            else pr(errMsg);
-            _REPL();
-        });
-    }
-    _REPL();
-}
+*/
 
 if (require.main === module) {
     REPL('Symbolic differentiator v0.85\nAvailable functions: '+Object.keys(arithDeriveOps).filter(x => x.length > 1).join(' ')+
