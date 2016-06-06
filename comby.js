@@ -97,8 +97,9 @@ function pState(seq, i, parsed) {
     this.p = parsed;
 }
 
-function appendToken(input, token) {
-    return new pState(input.s, input.i+1, CONS(token, input.p));
+function appendToken(input, token, incr) {
+    incr = incr || 1;
+    return new pState(input.s, input.i+incr, CONS(token, input.p));
 }
 
 function skipToken(input, N) {
@@ -215,9 +216,14 @@ function applyParser(obj, input) {
         if (matchObj(token, obj)) return appendToken(input, token);
         else return false;
     } else if (typeof obj == 'string') {
-        var token = getToken(input);
-        if (token === obj) return appendToken(input, token);
-        else return false;
+        if (typeof input.s == 'string') {
+            var token = input.s.substr(input.i, obj.length);
+            if (token === obj) return appendToken(input, token, obj.length);
+        } else {
+            var token = getToken(input);
+            if (token === obj) return appendToken(input, token);
+        }
+        return false;
     } else {
         pr('Error in applyParser');
         return false;

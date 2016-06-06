@@ -189,9 +189,6 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
         FACTOR
     );
     
-    //function tst(expr) { pr(expr,':',pr(arithTok(expr)),FUNCALL(new pState(arithTok(expr),0))) }
-    //['sin()', 'sin(1)', 'sin(1,2)', 'sin(1,2,3)', 'sin(1 2)', 'sin(1,2 3)'].map(tst);
-    
     return SEQ(TERM, END);
 }
 
@@ -201,7 +198,7 @@ var advancedSolver_T = makeArithSolver(wrap(makeAdvancedCalculatorParser(NUM_T, 
 
 if (require.main === module) {
     REPL('Engineering calculator v0.91\nAvailable functions: '+Object.keys(arithOps).filter(x => x.length > 1).join(' ')+
-    '\nAvailable variables: '+Object.keys(arithEnv).join(' ')+
+    '\nAvailable constants: '+Object.keys(arithEnv).join(' ')+
     '\nType arithmetic expressions and press ENTER:\n','Error', advancedSolver_T, (out, inp) => pr(inp,'=',out));
 }
 

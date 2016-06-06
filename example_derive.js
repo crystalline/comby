@@ -358,8 +358,8 @@ pr(treeToSEXP(arithSimplify(calcParser('1*3*4*6*6*sin(x/x/x)')[0])));
 
 if (require.main === module) {
     REPL('Symbolic differentiator v0.85\nAvailable functions: '+Object.keys(arithDeriveOps).filter(x => x.length > 1).join(' ')+
-    '\nAvailable variables: '+Object.keys(arithEnv).join(' ')+
-    '\nType arithmetic expressions and press ENTER:\n','Error',
+    '\nAvailable constants: '+Object.keys(arithEnv).join(' ')+
+    '\nType arithmetic expressions [comma] variable [optional: =number]\nand press ENTER:\nExamples:\nsin(x)/x,x\nsin(x)/x,x=10\n','Error',
     function (expr) { return treeToSEXP(deriveComputer(expr)) },
     (out, inp) => pr('Derive(',inp,')','=',out));
 }

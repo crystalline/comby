@@ -90,10 +90,36 @@ var pCombTests = [
         true]
 ]
 
+function runExampleTests() {
+    var p0 = C.$("hello");  
+    var p1 = C.SEQ("hel", "lo");  
+    var p2 = C.SEQ("h","e","l","l","o");  
+    var p3 = C.SEQ("h","e",SEQ("l","l"),"o");  
+    var wp2 = C.wrap(p2);
+    var p4 = C.SEQ(C.ALT("H","h"), "ello"); var wp4 = C.wrap(p4);
+    var p5 = T(p4, function (arr) { return arr.join('') }); var wp5 = C.wrap(p5);
+    var fail = false;
+    var tests = [[wp2("helo"), undefined],
+     [wp2("hello"), [ 'h', 'e', 'l', 'l', 'o' ]],
+     [wp4("Hello"), [ 'H', 'ello' ]],
+     [wp5("Hello"), [ 'Hello' ]],
+     [wp5("hello"), [ 'hello' ]]].forEach((elem, i) => { if (JSON.stringify(elem[0]) !== JSON.stringify(elem[1])) { pr('FAILED:', i); fail = true } });
+    if (fail) { pr('EXAMPLE TESTS FAILED') }
+    else { pr('EXAMPLE TESTS PASSED') }
+}
+
+runExampleTests() 
+
 runTests(pCombTests, {
     name: 'SHORT',
     prepInput: x => new pState(x, 0),
-    procResult: x => (x && (x.s.length === x.i)),
+    compare: function (a,b) {
+        if (b === true || b === false) {
+            return (a && (a.s.length === a.i)) === b;
+        } else {
+            return a && (a.s.length === a.i) && a === b;
+        }
+    },
     concise: true
 });
 
@@ -254,8 +280,6 @@ runTests(prepDeriveTests(deriveTests), {
     concise: true,
     compare: (diff) => (diff < 0.01)
 });
-
-
 
 
 
