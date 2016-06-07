@@ -16,6 +16,7 @@ var $ = C.$;
 var SEQ = C.SEQ;
 var ALT = C.ALT;
 var REP = C.REP;
+var LIST = C.LIST;
 var T = C.T;
 var OPT = C.OPT;
 var OPTREM = C.OPTREM;
@@ -287,10 +288,13 @@ function makeAdvancedCalculatorParser(_NUM, _ID) {
     
     var _NUM = _NUM || NUM;
     
+    /*
     var ARGLIST = T(ALT(SEQ(REP(function(x) { return TERM(x) }, ','), function(x) { return TERM(x) }),
                         OPT(function(x) { return TERM(x) })),
                     x => x.filter(y => y != ','));
+    */
     
+    var ARGLIST = T(LIST(function(x) { return TERM(x) }, ',', true), x => x);
 
     var FUNCALL = T(SEQ(_ID, '(', ARGLIST, ')'),
                     x => {

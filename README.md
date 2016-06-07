@@ -68,11 +68,24 @@ Accept first matching parser from the argument list, if no match return error
 * `OPT(parser)`
 Optionally match parser
 
-* `OPTREM(parser)`
-If parser matches, accept and discard the result
-
 * `REP(parser0, parser1, ... ,parserN)`
 Accept at least one or more repetitions of parsers 0..N in order
+
+* `LIST(elemParser, delimParser, [acceptEmpty], [saveDelim])`
+Parse a sequence of elemParser delimParser repetitions, last delim is not accepted
+By default discards delimiter parse results and disallows for empty lists (0 repetitions)
+Unless empty returns sequence of elemParser's of max length that could be parsed.
+It is up to enclosing parser to parse boundaries.
+This combinator is designed to parse argument lists, example: "1,2,3,4,5"  
+Typical usage:  
+`var ARGLIST = T(LIST(function(x) { return TERM(x) }, ',', true), x => x);`
+
+* `FIND(parser)`
+Greedy search for all matches of parser. Accepts even no matches.
+This combinator is designed to be used when you need to extract some pattern from a larger list of tokens.
+
+* `OPTREM(parser)`
+If parser matches, accept and discard the result
 
 * `T(parser, transformFn)`  
 Transform parser result with function `transformFn(arr)`
@@ -98,9 +111,12 @@ Accepts an number (i.e. a number)
 
 # List of utility functions
 
-* `wrap(p, [tokenizer], [doNotReverse])`
+* `wrapParser(p, [tokenizer], [allowPartialParse], [doNotReverse], [verbose])`
 Wraps parser into a functions that accepts a string and returns either an array of parsed output or false.
 Accepts an optional tokenizer function, if present it is used to preprocess the string into array of tokens which is passed to the parser.
+By default errors on partial success of parser, override with `allowPartialParse`
+Set `doNotReverse` to get reversed parse result list
+Set `verbose` to see more detailed error output
 
 * `tokenizer(rules)`  
 Create a regexp-based tokenizer function  

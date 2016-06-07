@@ -12,6 +12,8 @@ var $ = C.$;
 var SEQ = C.SEQ;
 var ALT = C.ALT;
 var REP = C.REP;
+var LIST = C.LIST;
+var FIND = C.FIND;
 var T = C.T;
 var OPT = C.OPT;
 var OPTREM = C.OPTREM;
@@ -87,7 +89,13 @@ var pCombTests = [
         ALT( SEQ( REP($(isDigit)), REP('+', REP($(isDigit)))),
              REP($(isDigit))
         ),
-        true]
+        true],
+    ['1,2', LIST($(isDigit), ','), true],
+    ['1', LIST($(isDigit), ','), true],
+    ['(1,2)', SEQ('(', LIST($(isDigit), ','), ')'), true],
+    ['()', SEQ('(', LIST($(isDigit), ','), ')'), false],
+    ['()', SEQ('(', LIST($(isDigit), ',', true), ')'), true],
+    ['(1)', SEQ('(', LIST($(isDigit), ','), ')'), true]
 ]
 
 function runExampleTests() {
@@ -107,21 +115,6 @@ function runExampleTests() {
     if (fail) { pr('EXAMPLE TESTS FAILED') }
     else { pr('EXAMPLE TESTS PASSED') }
 }
-
-runExampleTests() 
-
-runTests(pCombTests, {
-    name: 'SHORT',
-    prepInput: x => new pState(x, 0),
-    compare: function (a,b) {
-        if (b === true || b === false) {
-            return (a && (a.s.length === a.i)) === b;
-        } else {
-            return a && (a.s.length === a.i) && a === b;
-        }
-    },
-    concise: true
-});
 
 // Arithmetic expression parser/evaluator test
 
@@ -228,6 +221,27 @@ function prepSimplifyTests(tests) {
     }, true]);
 }
 
+//pr(SEQ('(',LIST($(isDigit),','),')')(new pState('(1,2,3)',0)));
+
+//return;
+
+var listTests = [
+ ['', wrap(LIST($(isDigit),',')), undefined],
+ ['', wrap(LIST($(isDigit),',', true)), []],
+ ['1', wrap(LIST($(isDigit),',')), [ '1' ]],
+ ['1,', wrap(LIST($(isDigit),',')), undefined],
+ ['1,2', wrap(LIST($(isDigit),',')), [ '1', '2' ]],
+ ['1,2,3', wrap(LIST($(isDigit),',')), [ '1', '2', '3' ]],
+ ['(1,2,3)', wrap(SEQ('(', LIST($(isDigit),','), ')')), [ '(', '1', '2', '3', ')' ]],
+ ['1,2,3', wrap(LIST($(isDigit),',')), [ '1', '2', '3' ]],
+];
+
+findTests = [
+    ['', wrap(FIND(LIST($(isDigit),','))), undefined],
+    ['1,2', wrap(FIND(LIST($(isDigit),','))), [ '1', '2' ]],
+    ['1,2 a,g', wrap(FIND(LIST($(isDigit),','))), [ '1', '2' ]]
+]
+
 var simplecalc = require('./example_simplecalc.js');
 var engcalc = require('./example_engcalc.js');
 var derivecalc = require('./example_derive.js');
@@ -241,6 +255,25 @@ var calcParser = derivecalc.calcParser;
 // _T means "tokenized version", it uses tokenizer and thus supports whitespace
 
 var simpleSolver = simplecalc._calc;
+
+runTests(listTests, {name: 'LIST', compare: (a,b) => JSON.stringify(a) === JSON.stringify(b), concise: true});
+runTests(findTests, {name: 'FIND', compare: (a,b) => JSON.stringify(a) === JSON.stringify(b), concise: true});
+
+runTests(pCombTests, {
+    name: 'SHORT',
+    prepInput: x => new pState(x, 0),
+    compare: function (a,b) {
+        if (b === true || b === false) {
+            return (a && (a.s.length === a.i)) === b;
+        } else {
+            return a && (a.s.length === a.i) && a === b;
+        }
+    },
+    onFail: (_0, _1, _2) => _0,
+    concise: true
+});
+
+runExampleTests();
 
 runTests(prepArithTests(simpleArithTests, simpleSolver), {
     name: 'SIMPLE CALCULATOR (NO TOKENIZER)',

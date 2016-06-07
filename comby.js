@@ -288,6 +288,76 @@ function OPTREM(parser) {
     }
 }
 
+//Parse a sequence of ELEM DELIM repetitions
+//By default discards delimiter parse results and disallows for empty lists (0 repetitions)
+//Last delimiter is optional
+//Unless empty returns sequence of ELEMs of max length that could be parsed
+//It is up to enclosing parser to parse boundaries
+function LIST(elemParser, delimParser, acceptEmpty, saveDelim) {
+    return function (input) {
+        var i = 0;
+        var expectElem = true;
+        var prevBase = input;
+        var prev = prevBase;
+        var next;
+        var preElem;
+        
+        while (true) {
+            //pr('LOOP:',i,prev.s[prev.i],expectElem);
+            if (expectElem) {
+                next = applyParser(elemParser, prev);
+                if (next) {
+                    prev = next;
+                } else {
+                    if (i === 0) {
+                        if (acceptEmpty) return prev;
+                        else return;
+                    }
+                    //Return parser state that contains previous list element and unconsumed delimiter
+                    //Without this in case of parse error delimiter gets deleted
+                    return preElem;
+                }
+            } else {
+                //Expect delimiter or error
+                //Save previous parser state in case of error on next element parse
+                preElem = next;
+                del = applyParser(delimParser, next);
+                if (del) {
+                    if (saveDelim) { prev = del }
+                    prev = new pState(next.s, del.i, next.p);
+                } else {
+                    return next;
+                }
+            }
+            expectElem = !expectElem;
+            i++;
+        }
+    }
+}
+
+// Greedily search for matches of parser
+function FIND(parser) {
+    return function (input) {
+        var next;
+        var basePrev = input;
+        var prev = input;
+        var atLeastOne = false;
+        while (true) {
+            if (prev.s.length === prev.i) {
+                if (atLeastOne) return prev;
+                else return;
+            }
+            next = applyParser(parser, prev);
+            if (next) {
+                prev = next;
+                atLeastOne = true;
+            } else {
+                prev = new pState(prev.s, prev.i+1, prev.p);
+            }
+        }
+    }
+}
+
 //Accept at least one or more repetitions of parser
 function REP() {
     var parsers = arguments;
@@ -323,6 +393,8 @@ function REP() {
 // Transform parser result with function transformFn(arr)
 // function receives parser output as an array arr (these args are popped from stack)
 // value returned by function is accepted as final parser result and pushed onto stack
+// if returned value is undefined nothing is pushed onto the stack, i.e. parse result becomes erased
+// passing identity function x => x as transformFn causes all parse results to be gathered into the list and pushed onto the stack
 function T(parser, transformFn) {
     var parsers = arguments;
     return function (input) {
@@ -331,7 +403,9 @@ function T(parser, transformFn) {
         if (next) {
             var args = LISTTAKETO(next.p, prevTop);
             var rest = prevTop;
-            return new pState(next.s, next.i, CONS(transformFn(args), rest));
+            var processedArgs = transformFn(args);
+            //If transformFn returned undefined completely discard result
+            return new pState(next.s, next.i, (processedArgs === undefined) ? rest : CONS(processedArgs, rest));
         } else {
             return false;
         }
@@ -346,13 +420,19 @@ function END(input) {
     }
 }
 
-function wrapParser(p, tokenizer, doNotReverse) {
+function wrapParser(p, tokenizer, allowPartialParse, doNotReverse, verbose) {
     return function (str) {
         var input = str;
         if (tokenizer) { input = tokenizer(str) }
         var ret = p(new pState(input, 0));
-        if (ret) { return doNotReverse ? LIST2ARR(ret.p) : LIST2ARR(ret.p).reverse() }
-        else { return }
+        //ret && pr(ret.s.length, ret.i);
+        if (ret && !allowPartialParse && (ret.s.length > ret.i)) {
+            if (verbose) pr('wrapParser error not all input parsed');
+            return;
+        }
+        if (ret) {
+            return doNotReverse ? LIST2ARR(ret.p) : LIST2ARR(ret.p).reverse()
+        } else { return }
     }
 }
 
@@ -384,6 +464,8 @@ module.exports = {
     SEQ: SEQ,
     ALT: ALT,
     REP: REP,
+    LIST: LIST,
+    FIND: FIND,
     T: T,
     OPT: OPT,
     OPTREM: OPTREM,
